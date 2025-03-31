@@ -11,25 +11,30 @@ int dstrlen(const char *s, char delim)
 	return i-s;
 }
 
-static int search(const char *pattern, int l)
+static int search(sbuf *sb, int l, int pre)
 {
-	if (!*pattern)
+	if (!sb->s[l])
 		return 0;
 	sbuf_cut(suggestsb, 0)
 	sbuf_smake(sylsb, 1024)
-	char *part = strstr(acsb->s, pattern);
+	again:;
+	char *part = strstr(acsb->s, sb->s+l);
 	while (part) {
 		char *part1 = part;
 		while (*part != '\n')
 			part--;
 		int len = dstrlen(++part, '\n');
-		if (len++ != l) {
+		if (len++ != sb->s_n - l) {
 			if (part == part1)
 				sbuf_mem(suggestsb, part, len)
-			else
+			else if (l >= pre)
 				sbuf_mem(sylsb, part, len)
 		}
-		part = strstr(part+len, pattern);
+		part = strstr(part+len, sb->s+l);
+	}
+	if (l < pre && sb->s[pre]) {
+		l = pre;
+		goto again;
 	}
 	sbuf_mem(suggestsb, sylsb->s, sylsb->s_n)
 	free(sylsb->s);
@@ -387,6 +392,8 @@ static void led_line(sbuf *sb, int ps, int pre, char *post, int ai_max,
 	int len, t_row = -2, p_reg = 0;
 	int c, i, lsug = 0, sug_pt = -1;
 	char *cs, *sug = NULL, *_sug = NULL;
+	if (ai_max >= 0 && xpac)
+		goto pac;
 	while (1) {
 		led_printparts(sb, pre, ps, post, ai_max);
 		len = sb->s_n;
@@ -493,7 +500,7 @@ static void led_line(sbuf *sb, int ps, int pre, char *post, int ai_max,
 		case TK_CTL('n'):
 			if (!suggestsb)
 				continue;
-			lsug = sug_pt >= 0 ? sug_pt : led_lastword(sb->s + pre) + pre;
+			lsug = sug_pt >= 0 ? sug_pt : led_lastword(sb->s);
 			if (_sug) {
 				if (suggestsb->s_n == sug - suggestsb->s)
 					continue;
@@ -504,13 +511,14 @@ static void led_line(sbuf *sb, int ps, int pre, char *post, int ai_max,
 				}
 				suggest:
 				*_sug = '\0';
-				sbuf_cut(sb, lsug)
-				sbuf_str(sb, sug)
+				for (c = 0; sug[c] && sb->s[c+lsug] == sug[c]; c++){}
+				sbuf_cut(sb, MAX(lsug+c, pre))
+				sbuf_str(sb, sug+c)
 				sug = _sug+1;
 				continue;
 			}
 			lookup:
-			if (search(sb->s + lsug, len - lsug)) {
+			if (search(sb, lsug, pre)) {
 				sug = suggestsb->s;
 				if (!(_sug = strchr(sug, '\n')))
 					continue;
@@ -524,8 +532,8 @@ static void led_line(sbuf *sb, int ps, int pre, char *post, int ai_max,
 				int r = xrow-xtop+1;
 				if (sug)
 					goto pac_;
-				c = sug_pt >= 0 ? sug_pt : led_lastword(sb->s + pre) + pre;
-				if (suggestsb && search(sb->s + c, sb->s_n - c)) {
+				lsug = sug_pt >= 0 ? sug_pt : led_lastword(sb->s);
+				if (suggestsb && search(sb, lsug, pre)) {
 					sug = suggestsb->s;
 					pac_:
 					syn_setft("/ac");
