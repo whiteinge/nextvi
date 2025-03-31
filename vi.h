@@ -9,6 +9,14 @@ If something is listed here, it must be used across multiple
 files and thus is never static.
 */
 
+#ifdef __APPLE__
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+#else
+extern char **environ;
+#endif
+extern char **xenvp;
+
 /* helper macros */
 #define LEN(a)		(int)(sizeof(a) / sizeof((a)[0]))
 #define MIN(a, b)	((a) < (b) ? (a) : (b))

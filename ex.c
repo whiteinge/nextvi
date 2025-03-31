@@ -34,6 +34,7 @@ int xmpt;			/* whether to prompt after printing > 1 lines in vi */
 int xpr;			/* ex_cprint register */
 int xsep = ':';			/* ex command separator */
 char *xregs[256];		/* string registers */
+char **xenvp;
 static int xbufsmax;		/* number of buffers */
 static int xbufsalloc = 10;	/* initial number of buffers */
 static char xrep[EXLEN];	/* the last replacement */
@@ -1093,6 +1094,41 @@ static int ec_setenc(char *loc, char *cmd, char *arg)
 	return 0;
 }
 
+static int ec_script(char *loc, char *cmd, char *arg)
+{
+	char *rep;
+	char buf[100];
+	int row = xrow, off = xoff;
+	char *ln = lbuf_get(xb, row);
+	if (!*arg)
+		return 0;
+	setenv("NEXTVI_FT", ex_ft, 1);
+	itoa(row, buf);
+	setenv("NEXTVI_ROW", buf, 1);
+	itoa(ln ? uc_chr(ln, off) - ln : 0, buf);
+	setenv("NEXTVI_OFF", buf, 1);
+	itoa(off, buf);
+	setenv("NEXTVI_COFF", buf, 1);
+	setenv("NEXTVI_LINE", ln ? ln : "", 1);
+	if (!lbuf_wordend(xb, 0, 1, &row, &off)) {
+		rep = uc_sub(lbuf_get(xb, row), xoff, off+1);
+		setenv("NEXTVI_WORD", rep, 1);
+		free(rep);
+	} else
+		setenv("NEXTVI_WORD", "", 1);
+	if (!(xvis & 4) && cmd[1] == 'c') {
+		term_chr('\n');
+		xmpt = xmpt >= 0 ? 2 : xmpt;
+	}
+	xenvp = environ;
+	rep = cmd_pipe(arg, NULL, cmd[1] == 'x');
+	xenvp = NULL;
+	if (rep && cmd[1] == 'x')
+		ex_exec(rep);
+	free(rep);
+	return 0;
+}
+
 static struct excmd {
 	char *name;
 	int (*ec)(char *loc, char *cmd, char *arg);
@@ -1137,6 +1173,8 @@ static struct excmd {
 	{"ub", ec_setenc},
 	{"u", ec_undoredo},
 	{"se", ec_set},
+	{"sc", ec_script},
+	{"sx", ec_script},
 	{"s", ec_substitute},
 	{"x!", ec_write},
 	{"x", ec_write},
