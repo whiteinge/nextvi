@@ -9,6 +9,7 @@ int xhll;			/* highlight current line */
 int xhlw;			/* highlight current word */
 int xhlp;			/* highlight {}[]() pair */
 int xhlr;			/* highlight text in reverse direction */
+int xhlm;			/* highlight marks */
 int xled = 1;			/* use the line editor */
 int xtd = +1;			/* current text direction */
 int xshape = 1;			/* perform letter shaping */
@@ -892,6 +893,7 @@ static struct option {
 	{"hlw", &xhlw},
 	{"hlp", &xhlp},
 	{"hlr", &xhlr},
+	{"hlm", &xhlm},
 	{"tbs", &xtabspc},
 	{"ish", &xish},
 	{"grp", &xgrp},

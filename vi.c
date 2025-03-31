@@ -1824,6 +1824,21 @@ void vi(int init)
 				}
 			}
 		}
+		if (xhlm) {
+			int mrow, moff;
+			char marks[] = "abcdefghijklmnopqrstuvwxyz[]`'";
+			led_att la;
+			if (!led_attsb)
+				sbuf_make(led_attsb, sizeof(la))
+			for (int i = 0; i < LEN(marks); i++) {
+				if (lbuf_jump(xb, marks[i], &mrow, &moff))
+					continue;
+				la.s = lbuf_get(xb, mrow);
+				la.off = moff;
+				la.att = SYN_BGMK((i % 15) + 1);
+				sbuf_mem(led_attsb, &la, (int)sizeof(la))
+			}
+		}
 		if (xhlp && (k = syn_findhl(3)) >= 0) {
 			int row = xrow, off = xoff;
 			int row1 = xrow, off1 = xoff;
