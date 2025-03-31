@@ -23,6 +23,7 @@ int xpac;			/* print autocomplete options */
 int xkwdcnt;			/* number of search kwd changes */
 int xbufcur;			/* number of active buffers */
 int xgrec;			/* global vi/ex recursion depth */
+int xexrc = 0;			/* read .exrc from the current directory */
 struct buf *bufs;		/* main buffers */
 struct buf tempbufs[2];		/* temporary buffers, for internal use */
 struct buf *ex_buf;		/* current buffer */
@@ -888,6 +889,7 @@ static struct option {
 	{"td", &xtd},
 	{"shape", &xshape},
 	{"order", &xorder},
+	{"exrc", &xexrc},
 	{"hl", &xhl},
 	{"hll", &xhll},
 	{"hlw", &xhlw},
@@ -1308,6 +1310,51 @@ void ex(void)
 	xgrec--;
 }
 
+void ex_script(FILE *fp)
+{
+	char done = 0;
+	do {
+		size_t n = 128, i = 0;
+		int c;
+		char *ln = malloc(128);
+		while ((c = fgetc(fp)) != EOF && c != '\n') {
+			if (i >= n - 2) {
+				n += 128;
+				ln = erealloc(ln, n);
+			}
+			ln[i++] = c;
+		}
+		if (!i) {
+			free(ln);
+			done = 1;
+			break;
+		}
+		ln[i] = '\0';
+		ex_command(ln);
+		free(ln);
+	} while(!done);
+}
+
+void load_exrc(char *exrc)
+{
+	struct stat st;
+	if (stat(exrc, &st) == 0) {
+		if (st.st_uid == getuid() && !(st.st_mode & S_IWGRP) && !(st.st_mode & S_IWOTH)) {
+			FILE *fp = fopen(exrc, "r");
+			if (fp) {
+				ex_script(fp);
+				fclose(fp);
+			} else {
+				fprintf(stderr, "Cannot open ~/.exrc\n");
+				exit(EXIT_FAILURE);
+			}
+		} else {
+			fprintf(stderr, "Bad permissions on ~/.exrc\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
 void ex_init(char **files, int n)
 {
 	xbufsalloc = MAX(n, xbufsalloc);
@@ -1319,6 +1366,20 @@ void ex_init(char **files, int n)
 	} while (--n > 0);
 	xmpt = 0;
 	xvis &= ~8;
-	if ((s = getenv("EXINIT")))
+	if ((s = getenv("EXINIT"))) {
 		ex_command(s)
+	} else {
+		char *homeenv = getenv("HOME");
+		if (homeenv) {
+			char exrc[PATH_MAX];
+			snprintf(exrc, sizeof(exrc), "%s/.exrc", homeenv);
+			load_exrc(exrc);
+		}
+	}
+	if (xexrc) {
+		char buf[PATH_MAX];
+		getcwd(buf, PATH_MAX);
+		if (strcmp(buf, getenv("HOME")) != 0)
+			load_exrc(".exrc");
+	}
 }
