@@ -1559,6 +1559,17 @@ void vi(int init)
 				vi_hidch = !vi_hidch;
 				vi_mod |= 1;
 				break;
+			case TK_CTL('o'):
+				next_hop:
+				if (lbuf_undojump(xb, &xrow, &xoff))
+					snprintf(vi_msg, sizeof(vi_msg), "undo jmp failed");
+				else if (xrow == nrow)
+					goto next_hop;
+				vi_col = vi_off2col(xb, xrow, xoff);
+				xoff = vi_col2off(xb, xrow, vi_col);
+				xtop = MAX(0, xrow - xrows / 2);
+				vi_mod = 1;
+				break;
 			case TK_CTL('v'):
 				vi_arg = (vi_wsel % 5) + !!*vi_word;
 			case TK_CTL('c'):

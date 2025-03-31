@@ -178,6 +178,7 @@ void lbuf_emark(struct lbuf *lb, struct lopt *lo, int beg, int end);
 struct lopt *lbuf_opt(struct lbuf *lb, char *buf, int pos, int n_del, int init);
 void lbuf_mark(struct lbuf *lbuf, int mark, int pos, int off);
 int lbuf_jump(struct lbuf *lbuf, int mark, int *pos, int *off);
+int lbuf_undojump(struct lbuf *lb, int *pos, int *off);
 int lbuf_undo(struct lbuf *lbuf);
 int lbuf_redo(struct lbuf *lbuf);
 int lbuf_modified(struct lbuf *lb);

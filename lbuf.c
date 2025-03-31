@@ -248,6 +248,41 @@ int lbuf_jump(struct lbuf *lbuf, int mark, int *pos, int *off)
 	return 0;
 }
 
+int lbuf_undojump(struct lbuf *lb, int *pos, int *off)
+{
+	struct lopt *lo;
+	static int last_hist_u;
+	int hist_u = lb->hist_u;
+	int useq;
+	int rpos = 0;
+	int ret = 0;
+	if (!last_hist_u) {
+		last_hist_u = hist_u;
+		ret = 2;
+	}
+	if (hist_u) {
+		do {
+			lo = &lb->hist[hist_u - 1];
+			useq = lo->seq;
+			while (hist_u && lb->hist[hist_u - 1].seq == useq)
+				lo = &lb->hist[--hist_u];
+		} while (hist_u && hist_u >= last_hist_u);
+		last_hist_u = hist_u;
+		hist_u = lb->hist_u;
+		while (hist_u != last_hist_u) {
+			lo = &lb->hist[--hist_u];
+			if (lb->hist[last_hist_u].pos > lo->pos) {
+				rpos += lo->n_ins;
+				rpos -= lo->n_del;
+			}
+		}
+	} else
+		return ret ? ret : 1;
+	*pos = rpos + lb->hist[last_hist_u].pos;
+	*off = lo->pos_off;
+	return ret;
+}
+
 int lbuf_undo(struct lbuf *lb)
 {
 	if (!lb->hist_u)
