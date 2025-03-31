@@ -4,11 +4,11 @@ static rset *dir_rslr;	/* pattern of marks for left-to-right strings */
 static rset *dir_rsrl;	/* pattern of marks for right-to-left strings */
 static rset *dir_rsctx;	/* direction context patterns */
 
-static void dir_reverse(int *ord, int beg, int end)
+static void dir_reverse(s64 *ord, s64 beg, s64 end)
 {
 	end--;
 	while (beg < end) {
-		int tmp = ord[beg];
+		s64 tmp = ord[beg];
 		ord[beg] = ord[end];
 		ord[end] = tmp;
 		beg++;
@@ -17,11 +17,11 @@ static void dir_reverse(int *ord, int beg, int end)
 }
 
 /* reorder the characters based on direction marks and characters */
-static int dir_reorder(char **chrs, int *ord, int end, int dir)
+static s64 dir_reorder(char **chrs, s64 *ord, s64 end, s64 dir)
 {
 	rset *rs = dir < 0 ? dir_rsrl : dir_rslr;
-	int beg = 0, end1 = end, c_beg, c_end;
-	int subs[LEN(dmarks[0].dir) * 2], gdir, found, i;
+	s64 beg = 0, end1 = end, c_beg, c_end;
+	s64 subs[LEN(dmarks[0].dir) * 2], gdir, found, i;
 	while (beg < end) {
 		char *s = chrs[beg];
 		found = rset_find(rs, s, subs,
@@ -47,9 +47,9 @@ static int dir_reorder(char **chrs, int *ord, int end, int dir)
 }
 
 /* return the direction context of the given line */
-int dir_context(char *s)
+s64 dir_context(char *s)
 {
-	int found;
+	s64 found;
 	if (xtd > +1)
 		return +1;
 	if (xtd < -1)
@@ -65,7 +65,7 @@ void dir_init(void)
 	char *relr[128];
 	char *rerl[128];
 	char *ctx[128];
-	int i;
+	s64 i;
 	for (i = 0; i < dmarkslen; i++) {
 		relr[i] = dmarks[i].ctx >= 0 ? dmarks[i].pat : NULL;
 		rerl[i] = dmarks[i].ctx <= 0 ? dmarks[i].pat : NULL;
@@ -77,14 +77,14 @@ void dir_init(void)
 	dir_rsctx = rset_make(i, ctx, 0);
 }
 
-static int ren_cwid(char *s, int pos)
+static s64 ren_cwid(char *s, s64 pos)
 {
 	if (s[0] == '\t')
 		return xtabspc - (pos & (xtabspc-1));
 	if (s[0] == '\n')
 		return 1;
-	int c, l; uc_code(c, s, l)
-	for (int i = 0; i < phlen; i++)
+	s64 c, l; uc_code(c, s, l)
+	for (s64 i = 0; i < phlen; i++)
 		if (c >= ph[i].cp[0] && c <= ph[i].cp[1] && l == ph[i].l)
 			return ph[i].wid;
 	return uc_wid(c);
@@ -103,14 +103,14 @@ ren_state *ren_position(char *s)
 		free(rstate->pos);
 		free(rstate->chrs);
 	}
-	unsigned int n, i, c = 2;
-	int cpos = 0, wid, *off, *pos, *col;
+	u64 n, i, c = 2;
+	s64 cpos = 0, wid, *off, *pos, *col;
 	char **chrs = uc_chop(s, &n);
 	pos = emalloc(((n + 1) * sizeof(pos[0])) * 2);
 	off = &pos[n+1];
 	rstate->ctx = dir_context(s);
 	if (xorder && dir_reorder(chrs, off, n, rstate->ctx)) {
-		int *wids = emalloc(n * sizeof(wids[0]));
+		s64 *wids = emalloc(n * sizeof(wids[0]));
 		for (i = 0; i < n; i++) {
 			pos[off[i]] = cpos;
 			cpos += ren_cwid(chrs[off[i]], cpos);
@@ -153,33 +153,33 @@ ren_state *ren_position(char *s)
 }
 
 /* convert character offset to visual position */
-int ren_pos(char *s, int off)
+s64 ren_pos(char *s, s64 off)
 {
 	ren_state *r = ren_position(s);
 	return off < r->n ? r->pos[off] : 0;
 }
 
 /* convert visual position to character offset */
-int ren_off(char *s, int p)
+s64 ren_off(char *s, s64 p)
 {
 	ren_state *r = ren_position(s);
 	return r->col[p < r->cmax ? p : r->cmax];
 }
 
 /* adjust cursor position */
-int ren_cursor(char *s, int p)
+s64 ren_cursor(char *s, s64 p)
 {
 	if (!s)
 		return 0;
 	ren_state *r = ren_position(s);
 	if (p >= r->cmax)
 		p = r->cmax - (*r->chrs[r->col[r->cmax]] == '\n');
-	int i = r->col[p];
+	s64 i = r->col[p];
 	return r->pos[i] + r->wid[i] - 1;
 }
 
 /* return an offset before EOL */
-int ren_noeol(char *s, int o)
+s64 ren_noeol(char *s, s64 o)
 {
 	if (!s)
 		return 0;
@@ -189,12 +189,12 @@ int ren_noeol(char *s, int o)
 }
 
 /* the visual position of the next character */
-int ren_next(char *s, int p, int dir)
+s64 ren_next(char *s, s64 p, s64 dir)
 {
 	ren_state *r = ren_position(s);
 	if (p+dir < 0 || p > r->cmax)
 		return r->pos[r->col[r->cmax]];
-	int i = r->col[p];
+	s64 i = r->col[p];
 	if (r->wid[i] > 1 && dir > 0)
 		return r->pos[i] + r->wid[i];
 	return r->pos[i] + dir;
@@ -204,8 +204,8 @@ char *ren_translate(char *s, char *ln)
 {
 	if (s[0] == '\t' || s[0] == '\n')
 		return NULL;
-	int c, l; uc_code(c, s, l)
-	for (int i = 0; i < phlen; i++)
+	s64 c, l; uc_code(c, s, l)
+	for (s64 i = 0; i < phlen; i++)
 		if (c >= ph[i].cp[0] && c <= ph[i].cp[1] && l == ph[i].l)
 			return ph[i].d;
 	if (l == 1)
@@ -223,24 +223,24 @@ char *ren_translate(char *s, char *ln)
 #define NFTS		30
 /* mapping filetypes to regular expression sets */
 static struct ftmap {
-	int setbidx;
-	int seteidx;
+	s64 setbidx;
+	s64 seteidx;
 	char *ft;
 	rset *rs;
 } ftmap[NFTS];
-static int ftmidx;
-static int ftidx;
+static s64 ftmidx;
+static s64 ftidx;
 
 static rset *syn_ftrs;
-static int last_scdir;
-static int *blockatt;
-static int blockcont;
-int syn_reload;
-int syn_blockhl;
+static s64 last_scdir;
+static s64 *blockatt;
+static s64 blockcont;
+s64 syn_reload;
+s64 syn_blockhl;
 
-static void syn_initft(int fti, int n, char *name)
+static void syn_initft(s64 fti, s64 n, char *name)
 {
-	int i = n;
+	s64 i = n;
 	char *pats[hlslen];
 	for (; i < hlslen && !strcmp(hls[i].ft, name); i++)
 		pats[i - n] = hls[i].pat;
@@ -252,14 +252,14 @@ static void syn_initft(int fti, int n, char *name)
 
 char *syn_setft(char *ft)
 {
-	for (int i = 1; i < 4; i++)
+	for (s64 i = 1; i < 4; i++)
 		syn_addhl(NULL, i, 0);
-	for (int i = 0; i < ftmidx; i++)
+	for (s64 i = 0; i < ftmidx; i++)
 		if (!strcmp(ft, ftmap[i].ft)) {
 			ftidx = i;
 			return ftmap[ftidx].ft;
 		}
-	for (int i = 0; i < hlslen; i++)
+	for (s64 i = 0; i < hlslen; i++)
 		if (!strcmp(ft, hls[i].ft)) {
 			ftidx = ftmidx;
 			syn_initft(ftmidx++, i, hls[i].ft);
@@ -268,7 +268,7 @@ char *syn_setft(char *ft)
 	return ftmap[ftidx].ft;
 }
 
-void syn_scdir(int scdir)
+void syn_scdir(s64 scdir)
 {
 	if (last_scdir != scdir) {
 		last_scdir = scdir;
@@ -276,31 +276,31 @@ void syn_scdir(int scdir)
 	}
 }
 
-int syn_merge(int old, int new)
+s64 syn_merge(s64 old, s64 new)
 {
-	int fg = SYN_FGSET(new) ? SYN_FG(new) : SYN_FG(old);
-	int bg = SYN_BGSET(new) ? SYN_BG(new) : SYN_BG(old);
+	s64 fg = SYN_FGSET(new) ? SYN_FG(new) : SYN_FG(old);
+	s64 bg = SYN_BGSET(new) ? SYN_BG(new) : SYN_BG(old);
 	return ((old | new) & SYN_FLG) | (bg << 8) | fg;
 }
 
-void syn_highlight(int *att, char *s, int n)
+void syn_highlight(s64 *att, char *s, s64 n)
 {
 	rset *rs = ftmap[ftidx].rs;
-	int subs[rs->grpcnt * 2], sl;
-	int blk = 0, blkm = 0, sidx = 0, flg = 0, hl, j, i;
-	int bend = 0, cend = 0;
+	s64 subs[rs->grpcnt * 2], sl;
+	s64 blk = 0, blkm = 0, sidx = 0, flg = 0, hl, j, i;
+	s64 bend = 0, cend = 0;
 	while ((sl = rset_find(rs, s + sidx, subs, flg)) >= 0) {
 		hl = sl + ftmap[ftidx].setbidx;
-		int *catt = hls[hl].att;
-		int blkend = hls[hl].blkend;
+		s64 *catt = hls[hl].att;
+		s64 blkend = hls[hl].blkend;
 		if (blkend && sidx >= bend) {
 			for (i = 0; i < rs->setgrpcnt[sl]; i++)
 				if (subs[i * 2] >= 0)
 					blk = i;
-			blkm += blkm > abs(hls[hl].blkend) ? -1 : 1;
+			blkm += blkm > labs(hls[hl].blkend) ? -1 : 1;
 			if (blkm == 1 && last_scdir > 0)
 				blkend = blkend < 0 ? -1 : 1;
-			if (syn_blockhl == hl && blk == abs(blkend))
+			if (syn_blockhl == hl && blk == labs(blkend))
 				syn_blockhl = 0;
 			else if (!syn_blockhl && blk != blkend) {
 				syn_blockhl = hl;
@@ -311,8 +311,8 @@ void syn_highlight(int *att, char *s, int n)
 		}
 		for (i = 0; i < rs->setgrpcnt[sl]; i++) {
 			if (subs[i * 2] >= 0) {
-				int beg = uc_off(s, sidx + subs[i * 2 + 0]);
-				int end = uc_off(s, sidx + subs[i * 2 + 1]);
+				s64 beg = uc_off(s, sidx + subs[i * 2 + 0]);
+				s64 end = uc_off(s, sidx + subs[i * 2 + 1]);
 				for (j = beg; j < end; j++)
 					att[j] = syn_merge(att[j], catt[i]);
 				if (!hls[hl].end[i])
@@ -336,7 +336,7 @@ void syn_highlight(int *att, char *s, int n)
 
 char *syn_filetype(char *path)
 {
-	int hl = rset_find(syn_ftrs, path, NULL, 0);
+	s64 hl = rset_find(syn_ftrs, path, NULL, 0);
 	return hl >= 0 && hl < ftslen ? fts[hl].ft : hls[0].ft;
 }
 
@@ -353,17 +353,17 @@ void syn_reloadft(void)
 	}
 }
 
-int syn_findhl(int id)
+s64 syn_findhl(s64 id)
 {
-	for (int i = ftmap[ftidx].setbidx; i < ftmap[ftidx].seteidx; i++)
+	for (s64 i = ftmap[ftidx].setbidx; i < ftmap[ftidx].seteidx; i++)
 		if (hls[i].id == id)
 			return i;
 	return -1;
 }
 
-void syn_addhl(char *reg, int id, int reload)
+void syn_addhl(char *reg, s64 id, s64 reload)
 {
-	int ret = syn_findhl(id);
+	s64 ret = syn_findhl(id);
 	if (ret >= 0) {
 		hls[ret].pat = reg;
 		syn_reload = reload;
@@ -373,7 +373,7 @@ void syn_addhl(char *reg, int id, int reload)
 void syn_init(void)
 {
 	char *pats[ftslen];
-	int i = 0;
+	s64 i = 0;
 	for (; i < ftslen; i++)
 		pats[i] = fts[i].pat;
 	syn_ftrs = rset_make(i, pats, 0);

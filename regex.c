@@ -1,6 +1,6 @@
-static int isword(const char *s)
+static s64 isword(const char *s)
 {
-	int c = (unsigned char) s[0];
+	s64 c = (unsigned char) s[0];
 	return isalnum(c) || c == '_' || c > 127;
 }
 
@@ -27,7 +27,7 @@ enum
 typedef struct rsub rsub;
 struct rsub
 {
-	int ref;
+	s64 ref;
 	rsub *freesub;
 	const char *sub[];
 };
@@ -35,26 +35,26 @@ struct rsub
 typedef struct rthread rthread;
 struct rthread
 {
-	int *pc;
+	s64 *pc;
 	rsub *sub;
 };
 
 #define INSERT_CODE(at, num, pc) \
 if (code) \
-	memmove(code + at + num, code + at, (pc - at)*sizeof(int)); \
+	memmove(code + at + num, code + at, (pc - at)*sizeof(s64)); \
 pc += num;
 #define REL(at, to) (to - at - 2)
 #define EMIT(at, byte) (code ? (code[at] = byte) : at)
 #define PC (prog->unilen)
 
-static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
+static s64 compilecode(const char *re_loc, rcode *prog, s64 sizecode, s64 flg)
 {
 	const char *re = re_loc;
-	int *code = sizecode ? NULL : prog->insts;
-	int start = PC, term = PC;
-	int alt_label = 0, c, l, cnt;
-	int alt_stack[4096], altc = 0;
-	int cap_stack[4096 * 5], capc = 0;
+	s64 *code = sizecode ? NULL : prog->insts;
+	s64 start = PC, term = PC;
+	s64 alt_label = 0, c, l, cnt;
+	s64 alt_stack[4096], altc = 0;
+	s64 cap_stack[4096 * 5], capc = 0;
 
 	while (*re) {
 		switch (*re) {
@@ -72,7 +72,7 @@ static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
 			term = PC;
 			EMIT(PC++, CHAR);
 			uc_code(c, re, l)
-			if (flg & REG_ICASE && (unsigned int)c < 128)
+			if (flg & REG_ICASE && (u64)c < 128)
 				c = tolower(c);
 			EMIT(PC++, c);
 			break;
@@ -108,14 +108,14 @@ static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
 					re++;
 					continue;
 				}
-				if (flg & REG_ICASE && (unsigned int)c < 128)
+				if (flg & REG_ICASE && (u64)c < 128)
 					c = tolower(c);
 				EMIT(PC++, c);
 				if (re[l] == '-' && re[l+1] != ']')
 					re += l+1;
 				uc_code(c, re, l)
 				re += l;
-				if (flg & REG_ICASE && (unsigned int)c < 128)
+				if (flg & REG_ICASE && (u64)c < 128)
 					c = tolower(c);
 				EMIT(PC++, c);
 			}
@@ -124,8 +124,8 @@ static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
 			break;
 		case '(':;
 			term = PC;
-			int sub;
-			int capture = 1;
+			s64 sub;
+			s64 capture = 1;
 			if (*(re+1) == '?') {
 				re += 2;
 				if (*re == ':')
@@ -150,9 +150,9 @@ static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
 			if (--capc-4 < 0) return -1;
 			if (code && alt_label) {
 				EMIT(alt_label, REL(alt_label, PC) + 1);
-				int _altc = cap_stack[capc];
-				for (int alts = altc; altc > _altc; altc--) {
-					int at = alt_stack[_altc+alts-altc]+(altc-_altc)*2;
+				s64 _altc = cap_stack[capc];
+				for (s64 alts = altc; altc > _altc; altc--) {
+					s64 at = alt_stack[_altc+alts-altc]+(altc-_altc)*2;
 					EMIT(at, REL(at, PC) + 1);
 				}
 			}
@@ -165,7 +165,7 @@ static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
 			}
 			break;
 		case '{':;
-			int maxcnt = 0, mincnt = 0, i = 0, size = PC - term;
+			s64 maxcnt = 0, mincnt = 0, i = 0, size = PC - term;
 			re++;
 			while (isdigit((unsigned char) *re))
 				mincnt = mincnt * 10 + *re++ - '0';
@@ -183,14 +183,14 @@ static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
 				maxcnt = mincnt;
 			for (; i < mincnt-1; i++) {
 				if (code)
-					memcpy(&code[PC], &code[term], size*sizeof(int));
+					memcpy(&code[PC], &code[term], size*sizeof(s64));
 				PC += size;
 			}
 			for (i = maxcnt-mincnt; i > 0; i--) {
 				EMIT(PC++, SPLIT);
 				EMIT(PC++, REL(PC, PC+((size+2)*i)));
 				if (code)
-					memcpy(&code[PC], &code[term], size*sizeof(int));
+					memcpy(&code[PC], &code[term], size*sizeof(s64));
 				PC += size;
 			}
 			break;
@@ -253,23 +253,23 @@ static int compilecode(const char *re_loc, rcode *prog, int sizecode, int flg)
 	}
 	if (code && alt_label) {
 		EMIT(alt_label, REL(alt_label, PC) + 1);
-		for (int alts = altc; altc; altc--) {
-			int at = alt_stack[alts-altc]+altc*2;
+		for (s64 alts = altc; altc; altc--) {
+			s64 at = alt_stack[alts-altc]+altc*2;
 			EMIT(at, REL(at, PC) + 1);
 		}
 	}
 	return capc ? -1 : 0;
 }
 
-int re_sizecode(const char *re)
+s64 re_sizecode(const char *re)
 {
 	rcode dummyprog;
 	dummyprog.unilen = 4;
-	int res = compilecode(re, &dummyprog, 1, 0);
+	s64 res = compilecode(re, &dummyprog, 1, 0);
 	return res < 0 ? res : dummyprog.unilen;
 }
 
-int reg_comp(rcode *prog, const char *re, int nsubs, int flags)
+s64 reg_comp(rcode *prog, const char *re, s64 nsubs, s64 flags)
 {
 	prog->len = 0;
 	prog->unilen = 0;
@@ -277,10 +277,10 @@ int reg_comp(rcode *prog, const char *re, int nsubs, int flags)
 	prog->presub = nsubs;
 	prog->splits = 0;
 	prog->flg = flags;
-	int res = compilecode(re, prog, 0, flags);
+	s64 res = compilecode(re, prog, 0, flags);
 	if (res < 0) return res;
-	int icnt = 0, scnt = SPLIT;
-	for (int i = 0; i < prog->unilen; i++)
+	s64 icnt = 0, scnt = SPLIT;
+	for (s64 i = 0; i < prog->unilen; i++)
 		switch (prog->insts[i]) {
 		case CLASS:
 			i += prog->insts[i+1]+1;
@@ -323,7 +323,7 @@ else \
 
 #define onlist(nn) \
 if (sdense[spc] < sparsesz) \
-	if (sdense[sdense[spc] * 2] == (unsigned int)spc) \
+	if (sdense[sdense[spc] * 2] == (u64)spc) \
 		deccheck(nn) \
 sdense[spc] = sparsesz; \
 sdense[sparsesz++ * 2] = spc; \
@@ -346,7 +346,7 @@ if (si) { \
 #define fastrec(nn, list, listidx) \
 nsub->ref++; \
 spc = *npc; \
-if ((unsigned int)spc < WBEG) { \
+if ((u64)spc < WBEG) { \
 	list[listidx].sub = nsub; \
 	list[listidx++].pc = npc; \
 	npc = pcs[si]; \
@@ -387,7 +387,7 @@ if (spc == MATCH) \
 #define addthread(n, nn, list, listidx) \
 rec##nn: \
 spc = *npc; \
-if ((unsigned int)spc < WBEG) { \
+if ((u64)spc < WBEG) { \
 	list[listidx].sub = nsub; \
 	list[listidx++].pc = npc; \
 	rec_check(nn) \
@@ -459,16 +459,16 @@ for (;; sp = _sp) { \
 				deccont() \
 			npc += 2; \
 		} else if (spc == CLASS) { \
-			int *pc = npc; \
-			int gcnt = pc[1]; \
-			int cnt, neq; \
+			s64 *pc = npc; \
+			s64 gcnt = pc[1]; \
+			s64 cnt, neq; \
 			do { \
 				pc += 2; \
 				neq = pc[0]; \
 				cnt = pc[1]; \
 				if (neq < -1 || neq > 1) { \
 					const char *s = sp; \
-					int cp = c; \
+					s64 cp = c; \
 					for (; cnt > 0; cnt--) { \
 						pc += 2; \
 						if (c >= *pc && c <= pc[1]) { \
@@ -526,18 +526,18 @@ for (;; sp = _sp) { \
 } \
 _return(0) \
 
-int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp, int flg)
+s64 re_pikevm(rcode *prog, const char *s, const char **subp, s64 nsubp, s64 flg)
 {
 	if (!*s)
 		return 0;
 	const char *sp = s, *_sp = s;
-	int rsubsize = prog->presub, suboff = 0;
-	int spc, i, j, c, *npc, osubp = nsubp * sizeof(char*);
-	int si = 0, clistidx = 0, nlistidx, mcont = MATCH;
-	int *insts = prog->insts, eol_ch = flg & REG_NEWLINE ? '\n' : 0;
-	int *pcs[prog->splits];
+	s64 rsubsize = prog->presub, suboff = 0;
+	s64 spc, i, j, c, *npc, osubp = nsubp * sizeof(char*);
+	s64 si = 0, clistidx = 0, nlistidx, mcont = MATCH;
+	s64 *insts = prog->insts, eol_ch = flg & REG_NEWLINE ? '\n' : 0;
+	s64 *pcs[prog->splits];
 	rsub *subs[prog->splits];
-	unsigned int sdense[prog->sparsesz], sparsesz = 0;
+	u64 sdense[prog->sparsesz], sparsesz = 0;
 	rsub *nsub, *s1, *matched = NULL, *freesub = NULL;
 	rthread _clist[prog->len], _nlist[prog->len];
 	rthread *clist = _clist, *nlist = _nlist, *tmp;
@@ -548,13 +548,13 @@ int re_pikevm(rcode *prog, const char *s, const char **subp, int nsubp, int flg)
 	if (flg & REG_ICASE)
 		goto jmp_start1;
 	goto jmp_start2;
-	match(1, if ((unsigned int)c < 128) c = tolower(c);)
+	match(1, if ((u64)c < 128) c = tolower(c);)
 	match(2, /*nop*/)
 }
 
-static int re_groupcount(char *s)
+static s64 re_groupcount(char *s)
 {
-	int n = *s == '(' && s[1] != '?' ? 1 : 0;
+	s64 n = *s == '(' && s[1] != '?' ? 1 : 0;
 	while (*s++)
 		if (s[0] == '(' && s[-1] != '\\' && s[1] != '?')
 			n++;
@@ -571,9 +571,9 @@ void rset_free(rset *rs)
 	free(rs);
 }
 
-rset *rset_make(int n, char **re, int flg)
+rset *rset_make(s64 n, char **re, s64 flg)
 {
-	int i, c = 0;
+	s64 i, c = 0;
 	rset *rs = emalloc(sizeof(*rs));
 	sbuf_smake(sb, 1024)
 	rs->grp = emalloc((n + 1) * sizeof(rs->grp[0]));
@@ -600,8 +600,8 @@ rset *rset_make(int n, char **re, int flg)
 		rs->grpcnt += rs->setgrpcnt[i];
 	}
 	sbuf_mem(sb, "\0\0\0\0", 4)
-	int sz = re_sizecode(sb->s) * sizeof(int);
-	char *code = emalloc(sizeof(rcode)+abs(sz));
+	s64 sz = re_sizecode(sb->s) * sizeof(s64);
+	char *code = emalloc(sizeof(rcode)+labs(sz));
 	rs->regex = (rcode*)code;
 	if (sz < 0 || reg_comp((rcode*)code, sb->s,
 				MAX(rs->grpcnt-1, 0), flg)) {
@@ -613,16 +613,16 @@ rset *rset_make(int n, char **re, int flg)
 }
 
 /* return the index of the matching regular expression or -1 if none matches */
-int rset_find(rset *rs, char *s, int *grps, int flg)
+s64 rset_find(rset *rs, char *s, s64 *grps, s64 flg)
 {
 	regmatch_t subs[rs->grpcnt+1];
 	regmatch_t *sub = subs+1;
 	if (re_pikevm(rs->regex, s, (const char**)sub, rs->grpcnt * 2, flg)) {
 		subs[0].rm_eo = NULL; /* make sure sub[-1] never matches */
-		for (int i = rs->n-1; i >= 0; i--) {
+		for (s64 i = rs->n-1; i >= 0; i--) {
 			if (sub[rs->grp[i]].rm_eo) {
-				int grp, n = grps ? rs->setgrpcnt[i] : 0;
-				for (int gi = 0; gi < n; gi++) {
+				s64 grp, n = grps ? rs->setgrpcnt[i] : 0;
+				for (s64 gi = 0; gi < n; gi++) {
 					grp = rs->grp[i] + gi;
 					if (sub[grp].rm_eo && sub[grp].rm_so) {
 						grps[gi * 2] = sub[grp].rm_so - s;
@@ -643,7 +643,7 @@ int rset_find(rset *rs, char *s, int *grps, int flg)
 char *re_read(char **src)
 {
 	char *s = *src;
-	int delim = (unsigned char) *s++;
+	s64 delim = (unsigned char) *s++;
 	if (!delim)
 		return NULL;
 	sbuf_smake(sb, 256)

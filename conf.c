@@ -2,7 +2,7 @@
 #include "kmap.h"
 
 /* access mode of new files */
-int conf_mode = 0600;
+s64 conf_mode = 0600;
 
 struct filetype fts[] = {
 	{"c", "\\.(c|h|cpp|hpp|cc|cs)$"},		/* C */
@@ -17,7 +17,7 @@ struct filetype fts[] = {
 	{"html", "\\.(html?|css)$"},			/* html,css */
 	{"diff", "\\.(patch|diff)$"}			/* diff */
 };
-int ftslen = LEN(fts);
+s64 ftslen = LEN(fts);
 
 /*
 colors 0-15
@@ -242,10 +242,10 @@ strike|tt|xmp|doctype|h1|h2|h3|h4|h5|h6|\
 		{8 | SYN_BD, 4, 9, 4, 11, 2}},
 	{"/-", "^.*$", {8 | SYN_BD}},
 };
-int hlslen = LEN(hls);
+s64 hlslen = LEN(hls);
 
 /* how to highlight text in the reverse direction */
-int conf_hlrev = SYN_BGMK(8);
+s64 conf_hlrev = SYN_BGMK(8);
 
 /* right-to-left characters (used only in dctxs[] and dmarks[]) */
 #define CR2L		"ءآأؤإئابةتثجحخدذرزسشصضطظعغـفقكلمنهوىييپچژکگی‌‍؛،»«؟ًٌٍَُِّْٔ"
@@ -256,37 +256,37 @@ struct dircontext dctxs[] = {
 	{-1, "^[" CR2L "]"},
 	{+1, "^[a-zA-Z_0-9]"},
 };
-int dctxlen = LEN(dctxs);
+s64 dctxlen = LEN(dctxs);
 
 struct dirmark dmarks[] = {
 	{+1, {-1}, "[" CR2L "][" CNEUT CR2L "]*[" CR2L "]"},
 	{-1, {0, 1, -1, 1, -1}, "(^[ \t]*)([^" CR2L "]*)([" CR2L "]*)([^" CR2L "]*)"},
 };
-int dmarkslen = LEN(dmarks);
+s64 dmarkslen = LEN(dmarks);
 
 struct placeholder _ph[2] = {
 	{{0x0,0x1f}, "^", 1, 1},
 	{{0x200c,0x200d}, "-", 1, 3},
 };
 struct placeholder *ph = _ph;
-int phlen = LEN(_ph);
+s64 phlen = LEN(_ph);
 
-char **conf_kmap(int id)
+char **conf_kmap(s64 id)
 {
 	return kmaps[id];
 }
 
-int conf_kmapfind(char *name)
+s64 conf_kmapfind(char *name)
 {
-	for (int i = 0; i < LEN(kmaps); i++)
+	for (s64 i = 0; i < LEN(kmaps); i++)
 		if (name && kmaps[i][0] && !strcmp(name, kmaps[i][0]))
 			return i;
 	return 0;
 }
 
-char *conf_digraph(int c1, int c2)
+char *conf_digraph(s64 c1, s64 c2)
 {
-	for (int i = 0; i < LEN(digraphs); i++)
+	for (s64 i = 0; i < LEN(digraphs); i++)
 		if (digraphs[i][0][0] == c1 && digraphs[i][0][1] == c2)
 			return digraphs[i][1];
 	return NULL;

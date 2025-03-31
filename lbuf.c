@@ -1,7 +1,7 @@
 struct lbuf *lbuf_make(void)
 {
 	struct lbuf *lb = emalloc(sizeof(*lb));
-	int i;
+	s64 i;
 	memset(lb, 0, sizeof(*lb));
 	for (i = 0; i < LEN(lb->mark); i++)
 		lb->mark[i] = -1;
@@ -17,13 +17,13 @@ static void lopt_done(struct lopt *lo)
 	free(lo->mark_off);
 }
 
-static void lbuf_savemark(struct lbuf *lb, struct lopt *lo, int m1, int m2)
+static void lbuf_savemark(struct lbuf *lb, struct lopt *lo, s64 m1, s64 m2)
 {
 	lo->mark[m1] = lb->mark[m2];
 	lo->mark_off[m1] = lb->mark_off[m2];
 }
 
-static void lbuf_loadmark(struct lbuf *lb, struct lopt *lo, int m1, int m2)
+static void lbuf_loadmark(struct lbuf *lb, struct lopt *lo, s64 m1, s64 m2)
 {
 	if (lo->mark[m2] >= 0) {
 		lb->mark[m1] = lo->mark[m2];
@@ -31,7 +31,7 @@ static void lbuf_loadmark(struct lbuf *lb, struct lopt *lo, int m1, int m2)
 	}
 }
 
-static int markidx(int mark)
+static s64 markidx(s64 mark)
 {
 	if (mark == '\'' || mark == '`')
 		return 'z' - 'a' + 1;
@@ -54,7 +54,7 @@ static void lbuf_loadpos(struct lbuf *lb, struct lopt *lo)
 
 void lbuf_free(struct lbuf *lb)
 {
-	int i;
+	s64 i;
 	for (i = 0; i < lb->ln_n; i++)
 		free(lbuf_i(lb, i));
 	for (i = 0; i < lb->hist_n; i++)
@@ -64,21 +64,21 @@ void lbuf_free(struct lbuf *lb)
 	free(lb);
 }
 
-static int linelength(char *s)
+static s64 linelength(char *s)
 {
-	int len = dstrlen(s, '\n');
+	s64 len = dstrlen(s, '\n');
 	return s[len] == '\n' ? len + 1 : len;
 }
 
 /* low-level line replacement */
-static int lbuf_replace(struct lbuf *lb, char *s, struct lopt *lo, int n_del)
+static s64 lbuf_replace(struct lbuf *lb, char *s, struct lopt *lo, s64 n_del)
 {
-	int i, n_ins = 0, pos = lo->pos;
+	s64 i, n_ins = 0, pos = lo->pos;
 	sbuf_smake(sb, 0)
 	if (s) {
 		for (; *s; n_ins++) {
-			int l = linelength(s);
-			int l_nonl = l - (s[l - !!l] == '\n');
+			s64 l = linelength(s);
+			s64 l_nonl = l - (s[l - !!l] == '\n');
 			struct linfo *n = emalloc(l_nonl + 7 + sizeof(struct linfo));
 			n->len = l_nonl;
 			n->grec = 0;
@@ -86,7 +86,7 @@ static int lbuf_replace(struct lbuf *lb, char *s, struct lopt *lo, int n_del)
 			memcpy(ln, s, l_nonl);
 			memset(&ln[l_nonl + 1], 0, 5);	/* fault tolerance pad */
 			ln[l_nonl] = '\n';
-			sbuf_mem(sb, &ln, (int)sizeof(s))
+			sbuf_mem(sb, &ln, (s64)sizeof(s))
 			s += l;
 		}
 	}
@@ -94,7 +94,7 @@ static int lbuf_replace(struct lbuf *lb, char *s, struct lopt *lo, int n_del)
 		free(lbuf_i(lb, pos + i));
 	rstate->s = NULL; /* there is no guarantee malloc not giving same ptr back */
 	if (lb->ln_n + n_ins - n_del >= lb->ln_sz) {
-		int nsz = lb->ln_n + n_ins - n_del + 512;
+		s64 nsz = lb->ln_n + n_ins - n_del + 512;
 		char **nln = emalloc(nsz * sizeof(lb->ln[0]));
 		memcpy(nln, lb->ln, lb->ln_n * sizeof(lb->ln[0]));
 		free(lb->ln);
@@ -124,7 +124,7 @@ static int lbuf_replace(struct lbuf *lb, char *s, struct lopt *lo, int n_del)
 	return n_ins;
 }
 
-void lbuf_emark(struct lbuf *lb, struct lopt *lo, int beg, int end)
+void lbuf_emark(struct lbuf *lb, struct lopt *lo, s64 beg, s64 end)
 {
 	lbuf_savemark(lb, lo, markidx(']'), markidx(']'));
 	lbuf_mark(lb, ']', end, lo->pos_off);
@@ -135,15 +135,15 @@ void lbuf_emark(struct lbuf *lb, struct lopt *lo, int beg, int end)
 }
 
 /* append undo/redo history */
-struct lopt *lbuf_opt(struct lbuf *lb, char *buf, int pos, int n_del, int init)
+struct lopt *lbuf_opt(struct lbuf *lb, char *buf, s64 pos, s64 n_del, s64 init)
 {
 	struct lopt *lo;
-	int i;
+	s64 i;
 	for (i = lb->hist_u; i < lb->hist_n; i++)
 		lopt_done(&lb->hist[i]);
 	lb->hist_n = lb->hist_u;
 	if (lb->hist_n == lb->hist_sz) {
-		int sz = lb->hist_sz + (lb->hist_sz ? lb->hist_sz : 128);
+		s64 sz = lb->hist_sz + (lb->hist_sz ? lb->hist_sz : 128);
 		struct lopt *hist = emalloc(sz * sizeof(hist[0]));
 		memcpy(hist, lb->hist, lb->hist_n * sizeof(hist[0]));
 		free(lb->hist);
@@ -165,14 +165,14 @@ struct lopt *lbuf_opt(struct lbuf *lb, char *buf, int pos, int n_del, int init)
 	return lo;
 }
 
-int lbuf_rd(struct lbuf *lbuf, int fd, int beg, int end, int init)
+s64 lbuf_rd(struct lbuf *lbuf, s64 fd, s64 beg, s64 end, s64 init)
 {
 	long nr;
 	sbuf_smake(sb, 1048575)  /* caps at 2147481600 on 32 bit */
 	while ((nr = read(fd, sb->s + sb->s_n, sb->s_sz - sb->s_n)) > 0) {
 		sb->s_n += nr;
 		if (sb->s_n >= sb->s_sz) {
-			if (sb->s_n > INT_MAX / 2)
+			if (sb->s_n > INT64_MAX / 2)
 				break;
 			sbuf_extend(sb, sb->s_n * 2)
 		}
@@ -183,9 +183,9 @@ int lbuf_rd(struct lbuf *lbuf, int fd, int beg, int end, int init)
 	return nr != 0;
 }
 
-int lbuf_wr(struct lbuf *lbuf, int fd, int beg, int end)
+s64 lbuf_wr(struct lbuf *lbuf, s64 fd, s64 beg, s64 end)
 {
-	for (int i = beg; i < end; i++) {
+	for (s64 i = beg; i < end; i++) {
 		char *ln = lbuf->ln[i];
 		long nw = 0;
 		long nl = lbuf_s(ln)->len + 1;
@@ -200,7 +200,7 @@ int lbuf_wr(struct lbuf *lbuf, int fd, int beg, int end)
 }
 
 /* replace lines beg through end with buf */
-void lbuf_iedit(struct lbuf *lb, char *buf, int beg, int end, int init)
+void lbuf_iedit(struct lbuf *lb, char *buf, s64 beg, s64 end, s64 init)
 {
 	if (beg > lb->ln_n)
 		beg = lb->ln_n;
@@ -215,21 +215,21 @@ void lbuf_iedit(struct lbuf *lb, char *buf, int beg, int end, int init)
 			beg + (lo->n_ins ? lo->n_ins - 1 : 0));
 }
 
-char *lbuf_cp(struct lbuf *lb, int beg, int end)
+char *lbuf_cp(struct lbuf *lb, s64 beg, s64 end)
 {
 	sbuf_smake(sb, 64)
-	for (int i = beg; i < end; i++)
+	for (s64 i = beg; i < end; i++)
 		if (i < lb->ln_n)
 			sbuf_str(sb, lb->ln[i])
 	sbufn_sret(sb)
 }
 
-char *lbuf_get(struct lbuf *lb, int pos)
+char *lbuf_get(struct lbuf *lb, s64 pos)
 {
 	return pos >= 0 && pos < lb->ln_n ? lb->ln[pos] : NULL;
 }
 
-void lbuf_mark(struct lbuf *lbuf, int mark, int pos, int off)
+void lbuf_mark(struct lbuf *lbuf, s64 mark, s64 pos, s64 off)
 {
 	if (markidx(mark) >= 0) {
 		lbuf->mark[markidx(mark)] = pos;
@@ -237,9 +237,9 @@ void lbuf_mark(struct lbuf *lbuf, int mark, int pos, int off)
 	}
 }
 
-int lbuf_jump(struct lbuf *lbuf, int mark, int *pos, int *off)
+s64 lbuf_jump(struct lbuf *lbuf, s64 mark, s64 *pos, s64 *off)
 {
-	int mk = markidx(mark);
+	s64 mk = markidx(mark);
 	if (mk < 0 || lbuf->mark[mk] < 0)
 		return 1;
 	*pos = lbuf->mark[mk];
@@ -248,14 +248,14 @@ int lbuf_jump(struct lbuf *lbuf, int mark, int *pos, int *off)
 	return 0;
 }
 
-int lbuf_undojump(struct lbuf *lb, int *pos, int *off)
+s64 lbuf_undojump(struct lbuf *lb, s64 *pos, s64 *off)
 {
 	struct lopt *lo;
-	static int last_hist_u;
-	int hist_u = lb->hist_u;
-	int useq;
-	int rpos = 0;
-	int ret = 0;
+	static s64 last_hist_u;
+	s64 hist_u = lb->hist_u;
+	s64 useq;
+	s64 rpos = 0;
+	s64 ret = 0;
 	if (!last_hist_u) {
 		last_hist_u = hist_u;
 		ret = 2;
@@ -283,12 +283,12 @@ int lbuf_undojump(struct lbuf *lb, int *pos, int *off)
 	return ret;
 }
 
-int lbuf_undo(struct lbuf *lb)
+s64 lbuf_undo(struct lbuf *lb)
 {
 	if (!lb->hist_u)
 		return 1;
 	struct lopt *lo = &lb->hist[lb->hist_u - 1];
-	int useq = lo->seq;
+	s64 useq = lo->seq;
 	lbuf_savemark(lb, lo, markidx('*'), markidx('['));
 	while (lb->hist_u && lb->hist[lb->hist_u - 1].seq == useq) {
 		lo = &lb->hist[--(lb->hist_u)];
@@ -301,12 +301,12 @@ int lbuf_undo(struct lbuf *lb)
 	return 0;
 }
 
-int lbuf_redo(struct lbuf *lb)
+s64 lbuf_redo(struct lbuf *lb)
 {
 	if (lb->hist_u == lb->hist_n)
 		return 1;
 	struct lopt *lo = &lb->hist[lb->hist_u];
-	int useq = lo->seq;
+	s64 useq = lo->seq;
 	lbuf_loadmark(lb, lo, markidx(']'), markidx('`'));
 	while (lb->hist_u < lb->hist_n && lb->hist[lb->hist_u].seq == useq) {
 		lo = &lb->hist[lb->hist_u++];
@@ -317,15 +317,15 @@ int lbuf_redo(struct lbuf *lb)
 	return 0;
 }
 
-static int lbuf_seq(struct lbuf *lb)
+static s64 lbuf_seq(struct lbuf *lb)
 {
 	return lb->hist_u ? lb->hist[lb->hist_u - 1].seq : lb->useq_last;
 }
 
 /* mark buffer as saved and, if clear, clear the undo history */
-void lbuf_saved(struct lbuf *lb, int clear)
+void lbuf_saved(struct lbuf *lb, s64 clear)
 {
-	int i;
+	s64 i;
 	if (clear) {
 		for (i = 0; i < lb->hist_n; i++)
 			lopt_done(&lb->hist[i]);
@@ -338,16 +338,16 @@ void lbuf_saved(struct lbuf *lb, int clear)
 }
 
 /* was the file modified since the last reset */
-int lbuf_modified(struct lbuf *lb)
+s64 lbuf_modified(struct lbuf *lb)
 {
 	lb->useq++;
 	return lbuf_seq(lb) != lb->useq_zero;
 }
 
-int lbuf_indents(struct lbuf *lb, int r)
+s64 lbuf_indents(struct lbuf *lb, s64 r)
 {
 	char *ln = lbuf_get(lb, r);
-	int o;
+	s64 o;
 	if (!ln)
 		return 0;
 	for (o = 0; uc_isspace(ln); o++)
@@ -355,7 +355,7 @@ int lbuf_indents(struct lbuf *lb, int r)
 	return *ln ? o : o - 2;
 }
 
-static int uc_nextdir(char **s, char *beg, int dir)
+static s64 uc_nextdir(char **s, char *beg, s64 dir)
 {
 	if (dir < 0) {
 		if (*s == beg)
@@ -369,11 +369,11 @@ static int uc_nextdir(char **s, char *beg, int dir)
 	return 0;
 }
 
-int lbuf_findchar(struct lbuf *lb, char *cs, int cmd, int n, int *row, int *off)
+s64 lbuf_findchar(struct lbuf *lb, char *cs, s64 cmd, s64 n, s64 *row, s64 *off)
 {
 	char *ln = lbuf_get(lb, *row);
 	char *s;
-	int c1, c2, l, dir = (cmd == 'f' || cmd == 't') ? +1 : -1;
+	s64 c1, c2, l, dir = (cmd == 'f' || cmd == 't') ? +1 : -1;
 	if (!ln)
 		return 1;
 	if (n < 0)
@@ -394,18 +394,18 @@ int lbuf_findchar(struct lbuf *lb, char *cs, int cmd, int n, int *row, int *off)
 	return n != 0;
 }
 
-int lbuf_search(struct lbuf *lb, rset *re, int dir, int *r,
-			int *o, int ln_n, int skip)
+s64 lbuf_search(struct lbuf *lb, rset *re, s64 dir, s64 *r,
+			s64 *o, s64 ln_n, s64 skip)
 {
-	int r0 = *r, o0 = *o;
-	int offs[re->grpcnt * 2], i = r0;
+	s64 r0 = *r, o0 = *o;
+	s64 offs[re->grpcnt * 2], i = r0;
 	char *s = lbuf_get(lb, i);
-	int off = skip >= 0 && *uc_chr(s, o0 + skip) ? uc_chr(s, o0 + skip) - s : 0;
+	s64 off = skip >= 0 && *uc_chr(s, o0 + skip) ? uc_chr(s, o0 + skip) - s : 0;
 	for (; i >= 0 && i < ln_n; i += dir) {
 		s = lb->ln[i];
 		while (rset_find(re, s + off, offs,
 				off ? REG_NOTBOL | REG_NEWLINE : REG_NEWLINE) >= 0) {
-			int g1 = offs[xgrp], g2 = offs[xgrp + 1];
+			s64 g1 = offs[xgrp], g2 = offs[xgrp + 1];
 			if (g1 < 0) {
 				off += offs[1] > 0 ? offs[1] : 1;
 				continue;
@@ -424,7 +424,7 @@ int lbuf_search(struct lbuf *lb, rset *re, int dir, int *r,
 	return ln_n < 0 ? 0 : 1;
 }
 
-int lbuf_sectionbeg(struct lbuf *lb, int dir, int *row, int *off, int ch)
+s64 lbuf_sectionbeg(struct lbuf *lb, s64 dir, s64 *row, s64 *off, s64 ch)
 {
 	if (ch == '\n')
 		while (*row >= 0 && *row < lbuf_len(lb) && *lbuf_get(lb, *row) == ch)
@@ -438,18 +438,18 @@ int lbuf_sectionbeg(struct lbuf *lb, int dir, int *row, int *off, int ch)
 	return 0;
 }
 
-int lbuf_eol(struct lbuf *lb, int row)
+s64 lbuf_eol(struct lbuf *lb, s64 row)
 {
-	int len = 0;
+	s64 len = 0;
 	if (lbuf_get(lb, row))
 		len = ren_position(lbuf_get(lb, row))->n;
 	return len ? len - 1 : len;
 }
 
-static int lbuf_next(struct lbuf *lb, int dir, int *r, int *o)
+static s64 lbuf_next(struct lbuf *lb, s64 dir, s64 *r, s64 *o)
 {
-	int odir = dir > 0 ? 1 : -1;
-	int len, off = *o + odir;
+	s64 odir = dir > 0 ? 1 : -1;
+	s64 len, off = *o + odir;
 	if (lbuf_get(lb, *r))
 		len = ren_position(lbuf_get(lb, *r))->n;
 	else
@@ -469,7 +469,7 @@ static int lbuf_next(struct lbuf *lb, int dir, int *r, int *o)
 }
 
 /* move to the last character of the word */
-static int lbuf_wordlast(struct lbuf *lb, int kind, int dir, int *row, int *off)
+static s64 lbuf_wordlast(struct lbuf *lb, s64 kind, s64 dir, s64 *row, s64 *off)
 {
 	if (!kind || !(uc_kind(rstate->chrs[*off]) & kind))
 		return 0;
@@ -481,9 +481,9 @@ static int lbuf_wordlast(struct lbuf *lb, int kind, int dir, int *row, int *off)
 	return 0;
 }
 
-int lbuf_wordbeg(struct lbuf *lb, int big, int dir, int *row, int *off)
+s64 lbuf_wordbeg(struct lbuf *lb, s64 big, s64 dir, s64 *row, s64 *off)
 {
-	int nl;
+	s64 nl;
 	if (!lbuf_get(lb, *row))
 		return 1;
 	ren_state *r = ren_position(lbuf_get(lb, *row));
@@ -501,9 +501,9 @@ int lbuf_wordbeg(struct lbuf *lb, int big, int dir, int *row, int *off)
 	return 0;
 }
 
-int lbuf_wordend(struct lbuf *lb, int big, int dir, int *row, int *off)
+s64 lbuf_wordend(struct lbuf *lb, s64 big, s64 dir, s64 *row, s64 *off)
 {
-	int nl = 0;
+	s64 nl = 0;
 	if (!lbuf_get(lb, *row))
 		return 1;
 	ren_state *r = ren_position(lbuf_get(lb, *row));
@@ -528,11 +528,11 @@ int lbuf_wordend(struct lbuf *lb, int big, int dir, int *row, int *off)
 }
 
 /* move to the matching character */
-int lbuf_pair(struct lbuf *lb, int *row, int *off)
+s64 lbuf_pair(struct lbuf *lb, s64 *row, s64 *off)
 {
-	int r = *row, o = *off;
+	s64 r = *row, o = *off;
 	char *pairs = "()[]{}";
-	int p, c, dep = 1;
+	s64 p, c, dep = 1;
 	if (!lbuf_get(lb, r))
 		return 1;
 	ren_state *rs = ren_position(lbuf_get(lb, r));
