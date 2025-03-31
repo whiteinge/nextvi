@@ -1131,6 +1131,49 @@ static int ec_script(char *loc, char *cmd, char *arg)
 	return 0;
 }
 
+static int ec_closebuf(char *loc, char *cmd, char *arg)
+{
+	int idx, ridx = 0;
+	int istmp = istempbuf(ex_buf);
+	char *s;
+	if (!*arg) {
+		idx = istmp ? -1 : ex_buf - bufs;
+	} else {
+		while (*arg == ' ' || *arg == '\t')
+			arg++;
+		idx = atoi(arg);
+		if (idx < 0 && !istmp)
+			idx = ex_buf - bufs + 1;
+		s = strchr(arg, '-');
+		if (s) {
+			ridx = atoi(s+1) - idx;
+			if (ridx <= 0 && !istmp)
+				ridx = (ex_buf - bufs) - idx - 1;
+		}
+	}
+	for (int b = 0; b <= ridx; b++) {
+		if (idx < 0 || (!idx && xbufcur < 2) || idx >= xbufcur)
+			return 1;
+		bufs_free(idx);
+		for (int i = idx; i < xbufcur; i++)
+			bufs[i] = bufs[i+1];
+		xbufcur--;
+		if (!istmp) {
+			ex_buf = idx == ex_buf - bufs ? bufs : ex_buf;
+			ex_buf = idx < ex_buf - bufs ? ex_buf - 1 : ex_buf;
+			ex_pbuf = idx == ex_pbuf - bufs ? bufs : ex_pbuf;
+			ex_pbuf = idx < ex_pbuf - bufs ? ex_pbuf - 1 : ex_pbuf;
+		} else {
+			ex_pbuf = idx == ex_pbuf - bufs ? bufs : ex_pbuf;
+			ex_pbuf = idx < ex_pbuf - bufs ? ex_pbuf - 1 : ex_pbuf;
+			ex_tpbuf = idx == ex_tpbuf - bufs ? bufs : ex_tpbuf;
+			ex_tpbuf = idx < ex_tpbuf - bufs ? ex_tpbuf - 1 : ex_tpbuf;
+		}
+		syn_setft(ex_ft);
+	}
+	return 0;
+}
+
 static struct excmd {
 	char *name;
 	int (*ec)(char *loc, char *cmd, char *arg);
@@ -1185,6 +1228,7 @@ static struct excmd {
 	{"cm!", ec_cmap},
 	{"cm", ec_cmap},
 	{"cd", ec_chdir},
+	{"cx", ec_closebuf},
 	{"c", ec_insert},
 	{"=", ec_lnum},
 	{"", ec_print}, /* do not remove */
